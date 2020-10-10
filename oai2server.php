@@ -14,9 +14,10 @@ class OAI2Server {
     private $token_prefix = '/tmp/oai_pmh-';
     private $token_valid = 86400;
 
-    function __construct($uri, $args, $identifyResponse, $callbacks) {
+    function __construct($uri, $args, $identifyResponse, $maxItems, $callbacks) {
 
         $this->uri = $uri;
+        $this->maxItems = $maxItems;
 
         if (!isset($args['verb']) || empty($args['verb'])) {
             $this->errors[] = new OAI2Exception('badVerb');
@@ -193,7 +194,7 @@ class OAI2Server {
 
     public function ListRecords() {
 
-        $maxItems = 1000;
+        $maxItems = $this->maxItems;
         $deliveredRecords = 0;
         $metadataPrefix = $this->args['metadataPrefix'];
         $from = isset($this->args['from']) ? $this->args['from'] : '';
