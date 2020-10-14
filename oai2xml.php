@@ -32,12 +32,17 @@ class OAI2XMLResponse {
      * @param $mom_node Type: DOMNode. The target node.
      * @param $name     Type: string. The name of child nade is being added
      * @param $value    Type: string. Text for the adding node if it is a text node.
+     * @param $attrs    Type: array. Array of [string=>string] describing attributes for this node
      *
      * @return DOMElement $added_node * The newly created node
      */
 
-    function addChild($mom_node,$name, $value='') {
+    function addChild($mom_node,$name, $value='', $attrs=[]) {
         $added_node = $this->doc->createElement($name,$value);
+        # Add attributes if given
+        foreach ($attrs as $attr => $attr_value) {
+            $added_node->setAttribute($attr, $attr_value);
+        }
         $added_node = $mom_node->appendChild($added_node);
         return $added_node;
     }
@@ -94,6 +99,7 @@ class OAI2XMLResponse {
      * @param $num_rows           Type: integer. Number of records retrieved.
      * @param $cursor             Type: string. Cursor can be used for database to retrieve next time.
      */
+     # TODO: correct comments, num_rows is total, cursor is an indicator of where we are
     function createResumptionToken($token, $expirationdatetime, $num_rows, $cursor=null) {
         $resump_node = $this->addChild($this->verbNode,"resumptionToken",$token);
         if(isset($expirationdatetime)) {

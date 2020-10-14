@@ -121,6 +121,7 @@ class OAI2Server {
             $resumptionToken = null;
         }
         if (empty($this->errors)) {
+            # TODO expend resumptionToken
             if ($sets = call_user_func($this->listSetsCallback, $resumptionToken)) {
 
                 foreach($sets as $set) {
@@ -245,6 +246,7 @@ class OAI2Server {
 
                 $records_count = call_user_func($this->listRecordsCallback, $metadataPrefix, $from, $until, $set, true);
 
+                # TODO: must send $this->verb, to only get identifier if ListIdentifiers
                 $records = call_user_func($this->listRecordsCallback, $metadataPrefix, $from, $until, $set, false, $deliveredRecords, $maxItems);
 
                 foreach ($records as $record) {
@@ -304,9 +306,16 @@ class OAI2Server {
             $schema_node->setAttribute($name, $value);
         }
         foreach ($record['metadata']['fields'] as $name => $values) {
+            # If value is a string treat it as single value
+            #  convert it to an array
             if (!is_array($values)) $values = [$values];
             foreach ($values as $value) {
-                $this->response->addChild($schema_node, $name, $value);
+                # if value is an array, it contains attributes for this node [value, [attr=>attr_value]]
+                $attrs = [];
+                if (is_array($value)) {
+                    list($value, $attrs) = $value;
+                }
+                $this->response->addChild($schema_node, $name, $value, $attrs);
             }
         }
     }
