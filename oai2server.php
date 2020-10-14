@@ -243,11 +243,13 @@ class OAI2Server {
 
         if (empty($this->errors)) {
             try {
+                # ListRecords or ListIdentifiers
+                $list_records = $this->verb == 'ListRecords';
 
-                $records_count = call_user_func($this->listRecordsCallback, $metadataPrefix, $from, $until, $set, true);
+                $records_count = call_user_func($this->listRecordsCallback, $metadataPrefix, $from, $until, $set, true, $list_records);
 
                 # TODO: must send $this->verb, to only get identifier if ListIdentifiers
-                $records = call_user_func($this->listRecordsCallback, $metadataPrefix, $from, $until, $set, false, $deliveredRecords, $maxItems);
+                $records = call_user_func($this->listRecordsCallback, $metadataPrefix, $from, $until, $set, false, $list_records, $deliveredRecords, $maxItems);
 
                 foreach ($records as $record) {
 
@@ -259,7 +261,7 @@ class OAI2Server {
                                         (($this->identifyResponse['deletedRecord'] == 'transient') ||
                                          ($this->identifyResponse['deletedRecord'] == 'persistent')));
 
-                    if($this->verb == 'ListRecords') {
+                    if($list_records) {
                         $cur_record = $this->response->addToVerbNode('record');
                         $cur_header = $this->response->createHeader($identifier, $datestamp,$setspec,$cur_record);
                         if (!$status_deleted) {
