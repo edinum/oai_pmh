@@ -212,7 +212,7 @@ class OAI2Server {
 
         $maxItems = $this->maxItems;
         $deliveredRecords = 0;
-        $metadataPrefix = $this->args['metadataPrefix'];
+        $metadataPrefix = isset($this->args['metadataPrefix']) ? $this->args['metadataPrefix'] : '';
         $from = isset($this->args['from']) ? $this->args['from'] : '';
         $until = isset($this->args['until']) ? $this->args['until'] : '';
         $set = isset($this->args['set']) ? $this->args['set'] : '';
