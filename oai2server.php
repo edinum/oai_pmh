@@ -12,7 +12,7 @@ class OAI2Server {
     private $args = array();
     private $verb = '';
     private $token_prefix = '/tmp/oai_pmh-';
-    private $token_valid = 86400;
+    private $token_valid = 0;
 
     function __construct($uri, $args, $identifyResponse, $maxItems, $callbacks) {
 
@@ -112,17 +112,18 @@ class OAI2Server {
             if (count($this->args) > 1) {
                 $this->errors[] = new OAI2Exception('badArgument');
             } else {
-                if ((int)$this->args['resumptionToken']+$this->token_valid < time()) {
+                $resumptionToken = intval($this->args['resumptionToken']);
+                if ($resumptionToken != $this->args['resumptionToken']) {
                     $this->errors[] = new OAI2Exception('badResumptionToken');
                 }
             }
-            $resumptionToken = $this->args['resumptionToken'];
         } else {
-            $resumptionToken = null;
+            $resumptionToken = 0;
         }
         if (empty($this->errors)) {
-            # TODO expend resumptionToken
-            if ($sets = call_user_func($this->listSetsCallback, $resumptionToken)) {
+            $count = call_user_func($this->listSetsCallback, true);
+
+            if ($sets = call_user_func($this->listSetsCallback, false, $this->maxItems, $resumptionToken)) {
 
                 foreach($sets as $set) {
 
@@ -139,6 +140,20 @@ class OAI2Server {
                         }
                     }
                 }
+
+                // Will we need a new ResumptionToken?
+                if ($count - $resumptionToken > $this->maxItems) {
+                    $restoken +=  $this->maxItems;
+                } elseif (isset($args['resumptionToken'])) {
+                    // Last delivery, return empty ResumptionToken
+                    $restoken = null;
+                    $expirationDatetime = null;
+                }
+
+                if (isset($restoken)) {
+                    $this->response->createResumptionToken($restoken, false, $count, $restoken);
+                }
+
             } else {
                 $this->errors[] = new OAI2Exception('noSetHierarchy');
             }
@@ -206,18 +221,10 @@ class OAI2Server {
             if (count($this->args) > 1) {
                 $this->errors[] = new OAI2Exception('badArgument');
             } else {
-                if ((int)$this->args['resumptionToken']+$this->token_valid < time()) {
-                    $this->errors[] = new OAI2Exception('badResumptionToken');
+                if ($readings = $this->readResumptionToken($this->args['resumptionToken'])) {
+                    list($deliveredRecords, $metadataPrefix, $from, $until, $set) = $readings;
                 } else {
-                    if (!file_exists($this->token_prefix.$this->args['resumptionToken'])) {
-                        $this->errors[] = new OAI2Exception('badResumptionToken');
-                    } else {
-                        if ($readings = $this->readResumptionToken($this->token_prefix.$this->args['resumptionToken'])) {
-                            list($deliveredRecords, $metadataPrefix, $from, $until, $set) = $readings;
-                        } else {
-                            $this->errors[] = new OAI2Exception('badResumptionToken');
-                        }
-                    }
+                    $this->errors[] = new OAI2Exception('badResumptionToken');
                 }
             }
         } else {
@@ -279,9 +286,9 @@ class OAI2Server {
                 if ($records_count - $deliveredRecords > $maxItems) {
 
                     $deliveredRecords +=  $maxItems;
-                    $restoken = $this->createResumptionToken($deliveredRecords);
+                    $restoken = $this->createResumptionToken($deliveredRecords, $metadataPrefix, $from, $until, $set);
 
-                    $expirationDatetime = gmstrftime('%Y-%m-%dT%TZ', time()+$this->token_valid);	
+                    $expirationDatetime = $this->token_valid ? gmstrftime('%Y-%m-%dT%TZ', time()+$this->token_valid) : '';
 
                 } elseif (isset($args['resumptionToken'])) {
                     // Last delivery, return empty ResumptionToken
@@ -322,35 +329,27 @@ class OAI2Server {
         }
     }
 
-    private function createResumptionToken($delivered_records) {
-
-        list($usec, $sec) = explode(" ", microtime());
-        $token = ((int)($usec*1000) + (int)($sec*1000));
-
-        $fp = fopen ($this->token_prefix.$token, 'w');
-        if($fp==false) {
-            exit("Cannot write. Writer permission needs to be changed.");
-        }	
-        fputs($fp, "$delivered_records#");
-        fputs($fp, "$metadataPrefix#");
-        fputs($fp, "{$this->args['from']}#");
-        fputs($fp, "{$this->args['until']}#");
-        fputs($fp, "{$this->args['set']}#");
-        fclose($fp);
+    private function createResumptionToken($delivered_records, $metadataPrefix='', $from='', $until='', $set='') {
+        $values[] = $delivered_records;
+        $values[] = $metadataPrefix;
+        $values[] = $from;
+        if (!$until) {
+            $until = gmstrftime('%Y-%m-%dT%TZ', time());
+        }
+        $values[] = $until;
+        $values[] = $set;
+        $string = join(';', $values);
+        $token = urlencode($string);
         return $token;
     }
 
     private function readResumptionToken($resumptionToken) {
-        $rtVal = false;
-        $fp = fopen($resumptionToken, 'r');
-        if ($fp != false) {
-            $filetext = fgets($fp, 255);
-            $textparts = explode('#', $filetext);
-            fclose($fp);
-            unlink($resumptionToken);
-            $rtVal = array_values($textparts);
-        }
-        return $rtVal;
+        $string = urldecode($resumptionToken);
+        $values = explode(';', $string);
+        # if no cursor, no metadataPrefix or no until, this is a wrong token
+        # TODO: test validity of dates
+        if (!$values[0] || !$values[1] || !$values[3]) return false;
+        return $values;
     }
 
     /**

@@ -102,7 +102,7 @@ class OAI2XMLResponse {
      # TODO: correct comments, num_rows is total, cursor is an indicator of where we are
     function createResumptionToken($token, $expirationdatetime, $num_rows, $cursor=null) {
         $resump_node = $this->addChild($this->verbNode,"resumptionToken",$token);
-        if(isset($expirationdatetime)) {
+        if(!empty($expirationdatetime)) {
             $resump_node->setAttribute("expirationDate",$expirationdatetime);
         }
         $resump_node->setAttribute("completeListSize",$num_rows);
