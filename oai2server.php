@@ -131,10 +131,7 @@ class OAI2Server {
 
                     foreach($set as $key => $val) {
                         if($key=='setDescription') {
-                            $desNode = $this->response->addChild($setNode,$key);
-                            $des = $this->response->doc->createDocumentFragment();
-                            $des->appendXML($val);
-                            $desNode->appendChild($des);
+                            $this->add_container('setDescription', $setNode, $set);
                         } else {
                             $this->response->addChild($setNode,$key,$val);
                         }
@@ -193,7 +190,7 @@ class OAI2Server {
                     if ($status_deleted) {
                         $cur_header->setAttribute("status","deleted");
                     } else {
-                        $this->add_metadata($cur_record, $record);
+                        $this->add_container('metadata', $cur_record, $record);
                     }
                 } else {
                     $this->errors[] = new OAI2Exception('idDoesNotExist');
@@ -272,7 +269,7 @@ class OAI2Server {
                         $cur_record = $this->response->addToVerbNode('record');
                         $cur_header = $this->response->createHeader($identifier, $datestamp,$setspec,$cur_record);
                         if (!$status_deleted) {
-                            $this->add_metadata($cur_record, $record);
+                            $this->add_container('metadata', $cur_record, $record);
                         }	
                     } else { // for ListIdentifiers, only identifiers will be returned.
                         $cur_header = $this->response->createHeader($identifier, $datestamp,$setspec);
@@ -306,15 +303,12 @@ class OAI2Server {
         }
     }
 
-    private function add_metadata($cur_record, $record) {
+    private function add_container($name, $cur_node, $fields) {
 
-        $meta_node =  $this->response->addChild($cur_record ,"metadata");
+        $meta_node =  $this->response->addChild($cur_node ,$name);
+        $schema_node = $this->response->addChild($meta_node, $fields[$name]['container_name'], '', $fields[$name]['container_attributes']);
 
-        $schema_node = $this->response->addChild($meta_node, $record['metadata']['container_name']);
-        foreach ($record['metadata']['container_attributes'] as $name => $value) {
-            $schema_node->setAttribute($name, $value);
-        }
-        foreach ($record['metadata']['fields'] as $name => $values) {
+        foreach ($fields[$name]['fields'] as $name => $values) {
             # If value is a string treat it as single value
             #  convert it to an array
             if (!is_array($values)) $values = [$values];
