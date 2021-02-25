@@ -190,7 +190,8 @@ class OAI2Server {
                     if ($status_deleted) {
                         $cur_header->setAttribute("status","deleted");
                     } else {
-                        $this->add_container('metadata', $cur_record, $record);
+                        $metadata = $this->response->addChild($cur_record , 'metadata');
+                        $this->create_tree($metadata, $record['metadata']);
                     }
                 } else {
                     $this->errors[] = new OAI2Exception('idDoesNotExist');
@@ -252,7 +253,7 @@ class OAI2Server {
 
                 $records_count = call_user_func($this->listRecordsCallback, $metadataPrefix, $from, $until, $set, true, $list_records);
 
-                # TODO: must send $this->verb, to only get identifier if ListIdentifiers
+                // $list_records boolean determines if we get full record or only identifiers
                 $records = call_user_func($this->listRecordsCallback, $metadataPrefix, $from, $until, $set, false, $list_records, $deliveredRecords, $maxItems);
 
                 foreach ($records as $record) {
@@ -269,7 +270,8 @@ class OAI2Server {
                         $cur_record = $this->response->addToVerbNode('record');
                         $cur_header = $this->response->createHeader($identifier, $datestamp,$setspec,$cur_record);
                         if (!$status_deleted) {
-                            $this->add_container('metadata', $cur_record, $record);
+                            $metadata = $this->response->addChild($cur_record , 'metadata');
+                            $this->create_tree($metadata, $record['metadata']);
                         }	
                     } else { // for ListIdentifiers, only identifiers will be returned.
                         $cur_header = $this->response->createHeader($identifier, $datestamp,$setspec);
@@ -319,6 +321,26 @@ class OAI2Server {
                     list($value, $attrs) = $value;
                 }
                 $this->response->addChild($schema_node, $name, $value, $attrs);
+            }
+        }
+    }
+
+    /*
+    Create an XML tree
+    Input:
+        $parent (node): parent node
+        $element (array): [node_name, node_value, [attr_name=>attr_value], [array of children]]
+    */
+    private function create_tree(&$parent, &$element) {
+
+        @list($name, $value, $attributes, $children) = $element;
+        if (!$attributes) $attributes = [];
+
+        $new_node =  $this->response->addChild($parent ,$name, $value, $attributes);
+
+        if ($children) {
+            foreach ($children as $child) {
+                $this->create_tree($new_node, $child);
             }
         }
     }
