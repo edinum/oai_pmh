@@ -37,7 +37,7 @@ class OAI2XMLResponse {
      * @return DOMElement $added_node * The newly created node
      */
 
-    function addChild($mom_node,$name, $value='', $attrs=[]) {
+    function addChild($mom_node, $name, $value='', $attrs=[]) {
         $added_node = $this->doc->createElement($name,$value);
         # Add attributes if given
         foreach ($attrs as $attr => $attr_value) {
